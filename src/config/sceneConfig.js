@@ -11,16 +11,16 @@ export const CYLINDER_TEXTURE_URLS = [
     title: "Friends of the Future",
   },
   {
-    src: "/textures/galaxy.png",
-    title: "Galaxy",
+    src: "/textures/folio.png",
+    title: "Portfolio",
   },
   {
     src: "/textures/montreal.png",
     title: "Montreal",
   },
   {
-    src: "/textures/museink.png",
-    title: "Muse Ink",
+    src: "/textures/promptboard.png",
+    title: "PromptBoard",
   },
 ];
 
