@@ -32,8 +32,8 @@ export const createCylinder = (renderer) => {
   cylCamera.lookAt(0, 0, 0);
 
   // cylRoot carries the tilt; cylGroup (the planes) spins inside it. The
-  // reflective floor is NOT parented here — it stays flat and level regardless
-  // of the cylinder's tilt.
+  // reflective floor is parented here too, so it tilts together with the
+  // cylinder base instead of staying level.
   const cylRoot = new THREE.Group();
   cylRoot.rotation.x = CYLINDER.tilt;
   cylScene.add(cylRoot);
@@ -43,8 +43,8 @@ export const createCylinder = (renderer) => {
 
   const dpr = Math.min(window.devicePixelRatio, 2);
   const floor = createFloor(dpr);
-  floor.rotation.x = -Math.PI / 2; // lay flat, facing up
-  cylScene.add(floor); // level, independent of the cylinder tilt
+  floor.rotation.x = -Math.PI / 2; // lay flat in cylRoot's frame, facing up
+  cylRoot.add(floor); // inherits cylRoot's tilt, so the base tilts with the cylinder
 
   // Cylinder textures, cycled across the ring's planes.
   const cylTextures = CYLINDER_TEXTURE_URLS.map(({ src }) => {
@@ -160,10 +160,10 @@ export const createCylinder = (renderer) => {
       cylGroup.add(mesh);
     }
     buildText();
-    // Keep the level floor just below the cylinder base (base gap), and size it
-    // to the ring.
+    // Keep the floor just below the cylinder base (base gap), and size it to
+    // the ring. It shares cylRoot's tilt, so it stays parallel to the base.
     floor.position.y = -(CYLINDER.height / 2 + CYLINDER.baseGap);
-    floor.scale.setScalar(CYLINDER.radius * 1.6);
+    floor.scale.setScalar(CYLINDER.radius * CYLINDER.floorScale);
   };
 
   new FontLoader().load(FONT_URL, (loaded) => {

@@ -55,7 +55,9 @@ export const createGui = ({
     .add(CYLINDER, "tilt", -1, 1, 0.01)
     .name("tilt")
     .onChange((v) => (cylRoot.rotation.x = v));
-  cyl.add(CYLINDER, "spin", -1, 1, 0.01).name("spin speed");
+  cyl.add(CYLINDER, "dragSensitivity", 0.001, 0.02, 0.001).name("drag speed");
+  cyl.add(CYLINDER, "snapEase", 0.02, 0.5, 0.01).name("recenter speed");
+  cyl.add(CYLINDER, "coastDecay", 0.5, 0.98, 0.01).name("coast decay");
   cyl.add(CYLINDER, "parallax", 0, 2, 0.01).name("parallax");
   cyl.add(CYLINDER, "parallaxEase", 0.01, 0.3, 0.005).name("parallax ease");
   cyl
@@ -66,6 +68,18 @@ export const createGui = ({
     .add(CYLINDER, "reflectivity", 0, 1, 0.01)
     .name("reflectivity")
     .onChange((v) => (floor.material.uniforms.reflectivity.value = v));
+  cyl
+    .add(CYLINDER, "reflectionFadeStart", 0, 2, 0.01)
+    .name("reflect fade start")
+    .onChange((v) => (floor.material.uniforms.fadeStart.value = v));
+  cyl
+    .add(CYLINDER, "reflectionFadeEnd", 0, 4, 0.01)
+    .name("reflect fade end")
+    .onChange((v) => (floor.material.uniforms.fadeEnd.value = v));
+  cyl
+    .add(CYLINDER, "floorScale", 0.5, 5, 0.05)
+    .name("floor radius")
+    .onChange((v) => floor.scale.setScalar(CYLINDER.radius * v));
   cyl
     .addColor(CYLINDER, "planeColor")
     .name("card color")

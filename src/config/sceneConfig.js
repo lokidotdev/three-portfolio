@@ -53,14 +53,20 @@ export const CYLINDER = {
   radius: 2.4, // ring radius (world units)
   height: 2.2, // plane height
   gap: 0.005, // fractional gap between adjacent planes (near-continuous)
-  tilt: 0.0, // tips the ring so a sliver of the open top shows
-  spin: 0.15, // auto-rotation speed (rad/sec)
+  tilt: -0.2, // tips the ring so a sliver of the open top shows
+  spin: 0.15, // auto-rotation speed (rad/sec) — unused; ring is drag-controlled
+  dragSensitivity: 0.001, // radians the ring turns per pixel of horizontal drag
+  snapEase: 0.02, // how fast a panel recenters after release (0..1, higher = faster)
+  coastDecay: 0.9, // inertia decay per frame after release (0..1, lower = stops sooner)
   baseGap: 0.1, // vertical gap between the cylinder base and the reflective floor
-  reflectivity: 0.7, // 0 = white floor (no mirror), 1 = full reflection
+  reflectivity: 1.0, // 0 = white floor (no mirror), 1 = full reflection
+  reflectionFadeStart: 0.22, // reflection stays full within this radius (0..1 of the disk)
+  reflectionFadeEnd: 0.9, // reflection fully faded to transparent by this radius (0..1)
+  floorScale: 2.0, // reflective floor radius as a multiple of the ring radius
   planeColor: [230, 230, 230], // solid card colour behind the text (rgb 0..255)
   depth: 0.12, // box thickness (kept low so it still reads as a plane)
-  parallax: 0.6, // camera offset per screen-half of mouse travel (world units)
-  parallaxEase: 0.06, // how quickly the camera drifts toward the mouse
+  parallax: 0.3, // camera offset per screen-half of mouse travel (world units)
+  parallaxEase: 0.01, // how quickly the camera drifts toward the mouse
 };
 
 // 3D glass title text floating in front of each panel. Rendered with a real

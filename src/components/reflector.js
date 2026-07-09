@@ -15,6 +15,10 @@ const reflectorShader = {
     textureMatrix: { value: null },
     reflectivity: { value: CYLINDER.reflectivity },
     baseColor: { value: new THREE.Color(0xffffff) },
+    // Reflection reaches full strength within fadeStart of the base and fully
+    // fades to the white floor by fadeEnd (both in disk radius, 0..1).
+    fadeStart: { value: CYLINDER.reflectionFadeStart },
+    fadeEnd: { value: CYLINDER.reflectionFadeEnd },
   },
   // vLocal carries the disk's local xy (radius 0..1) so the fragment can
   // fade the reflection out with distance from the cylinder base.
@@ -33,6 +37,8 @@ const reflectorShader = {
     uniform vec3 color;
     uniform vec3 baseColor;
     uniform float reflectivity;
+    uniform float fadeStart;
+    uniform float fadeEnd;
     uniform sampler2D tDiffuse;
     varying vec4 vUv;
     varying vec2 vLocal;
@@ -50,20 +56,27 @@ const reflectorShader = {
       #include <logdepthbuf_fragment>
       vec4 base = texture2DProj( tDiffuse, vUv );
       vec3 reflection = blendOverlay( base.rgb, color );
-      // Strong under the base, fading to the white floor toward the edge.
-      float fade = 1.0 - smoothstep( 0.15, 0.85, length( vLocal ) );
-      gl_FragColor = vec4( mix( baseColor, reflection, reflectivity * fade ), 1.0 );
+      // Strong under the base, fading out toward the edge. The reflection
+      // fades to transparent (not white) so the scene behind shows through
+      // instead of an opaque disk.
+      float fade = 1.0 - smoothstep( fadeStart, fadeEnd, length( vLocal ) );
+      gl_FragColor = vec4( reflection, reflectivity * fade );
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`,
 };
 
 // Reflective base — a true planar mirror that reflects the cylinder above it.
-export const createFloor = (dpr) =>
-  new Reflector(new THREE.CircleGeometry(1, 96), {
+export const createFloor = (dpr) => {
+  const floor = new Reflector(new THREE.CircleGeometry(1, 96), {
     textureWidth: 1024 * dpr,
     textureHeight: 1024 * dpr,
     color: 0x808080, // neutral: overlay becomes identity, faithful mirror
     clipBias: 0.003,
     shader: reflectorShader,
   });
+  // The shader fades the reflection to alpha 0 at the edges, so blend it over
+  // the scene instead of drawing an opaque disk.
+  floor.material.transparent = true;
+  return floor;
+};

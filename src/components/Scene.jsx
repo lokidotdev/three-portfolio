@@ -32,6 +32,45 @@ const Scene = () => {
     // Eased parallax offset applied to the camera each frame (driven by mouse).
     const parallaxOffset = new THREE.Vector2(0, 0);
 
+    // --- Cylinder drag/snap state ---
+    // The ring is turned by dragging (mouse or touch) instead of auto-rotating.
+    // When released, it eases to the nearest "snap" angle so exactly one panel
+    // faces the camera head-on.
+    const seg = Math.max(3, Math.round(CYLINDER.segments));
+    const snapStep = (Math.PI * 2) / seg; // angle between adjacent panels
+    const dragState = {
+      active: false,
+      pointerId: null,
+      lastX: 0,
+      // Angular velocity (rad/sec) carried from the drag for a little inertia.
+      angVel: 0,
+    };
+
+    const onCylPointerDown = (e) => {
+      dragState.active = true;
+      dragState.pointerId = e.pointerId;
+      dragState.lastX = e.clientX;
+      dragState.angVel = 0;
+      canvas.setPointerCapture?.(e.pointerId);
+    };
+    const onCylPointerMove = (e) => {
+      if (!dragState.active || e.pointerId !== dragState.pointerId) return;
+      const dx = e.clientX - dragState.lastX;
+      dragState.lastX = e.clientX;
+      cyl.cylGroup.rotation.y += dx * CYLINDER.dragSensitivity;
+      dragState.angVel = dx * CYLINDER.dragSensitivity;
+    };
+    const onCylPointerUp = (e) => {
+      if (e.pointerId !== dragState.pointerId) return;
+      dragState.active = false;
+      dragState.pointerId = null;
+      canvas.releasePointerCapture?.(e.pointerId);
+    };
+    canvas.addEventListener("pointerdown", onCylPointerDown);
+    canvas.addEventListener("pointermove", onCylPointerMove);
+    canvas.addEventListener("pointerup", onCylPointerUp);
+    canvas.addEventListener("pointercancel", onCylPointerUp);
+
     // --- Pointer handling ---
     // Targets are eased toward each frame for a smooth, liquid response.
     const mouse = new THREE.Vector2(0.5, 0.5);
@@ -118,7 +157,22 @@ const Scene = () => {
       renderer.render(scene, camera);
 
       // Pass 2: cylinder in front, on a cleared depth buffer.
-      cyl.cylGroup.rotation.y += CYLINDER.spin * dt;
+      // Turned by dragging; when released it coasts on leftover velocity, then
+      // eases to the nearest snap angle so one panel faces the camera head-on.
+      const ring = cyl.cylGroup;
+      if (dragState.active) {
+        // Rotation is driven directly by the pointer in the move handler.
+      } else {
+        // Coast with the inertia carried out of the drag, decaying each frame.
+        ring.rotation.y += dragState.angVel;
+        dragState.angVel *= CYLINDER.coastDecay;
+        // Once nearly stopped, snap toward the closest facing angle.
+        if (Math.abs(dragState.angVel) < 0.0005) {
+          dragState.angVel = 0;
+          const target = Math.round(ring.rotation.y / snapStep) * snapStep;
+          ring.rotation.y += (target - ring.rotation.y) * CYLINDER.snapEase;
+        }
+      }
       // Parallax: drift the camera opposite-of-center with the mouse (mouse is
       // 0..1, remapped to -1..1) and keep it aimed at the ring, so the cylinder
       // shifts against the flat text layer behind it.
@@ -166,6 +220,10 @@ const Scene = () => {
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerleave", onPointerLeave);
+      canvas.removeEventListener("pointerdown", onCylPointerDown);
+      canvas.removeEventListener("pointermove", onCylPointerMove);
+      canvas.removeEventListener("pointerup", onCylPointerUp);
+      canvas.removeEventListener("pointercancel", onCylPointerUp);
       if (gui) gui.destroy();
       quad.geometry.dispose();
       material.dispose();
@@ -178,7 +236,13 @@ const Scene = () => {
   return (
     <canvas
       ref={canvasRef}
-      style={{ width: "100vw", height: "100vh", display: "block" }}
+      style={{
+        width: "100vw",
+        height: "100vh",
+        display: "block",
+        touchAction: "none",
+        cursor: "grab",
+      }}
     />
   );
 };
