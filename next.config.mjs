@@ -2,8 +2,11 @@ const nextConfig = {
   turbopack: {
     rules: {
       '*.{glsl,vert,frag,vs,fs}': {
-        loaders: ['glslify-loader'], // resolves #include / #pragma glslify imports
-        type: 'raw',                 // export the shader source as a string
+        // Loaders run right-to-left: glslify-loader resolves #pragma glslify
+        // includes and emits raw GLSL, then raw-loader wraps that string into
+        // a JS module (`export default "<shader source>"`).
+        loaders: ['raw-loader', 'glslify-loader'],
+        as: '*.js',
       },
     },
   },
@@ -11,8 +14,7 @@ const nextConfig = {
     // Fallback for `next build --webpack` and other webpack-based tooling.
     config.module.rules.push({
       test: /\.(glsl|vert|frag|vs|fs)$/,
-      type: 'asset/source',        // built into webpack 5, replaces raw-loader
-      use: ['glslify-loader'],     // ONLY if you use #pragma glslify imports
+      use: ['raw-loader', 'glslify-loader'],
     })
     return config
   },
