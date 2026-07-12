@@ -36,14 +36,14 @@ export const createGui = ({
   fx.addColor(CONFIG, "glowColor")
     .name("glow color")
     .onChange((c) => u.uGlowColor.value.fromArray(c.map((v) => v / 255)));
-  fx.open();
+  // fx.open();
 
   const mv = gui.addFolder("Motion");
   mv.add(motion, "responseSpeed", 0.02, 1, 0.01).name("speed");
   mv.add(motion, "velocityGain", 0, 20, 0.1).name("sensitivity");
   mv.add(motion, "velocityDecay", 0.5, 0.99, 0.01).name("decay");
   mv.add(motion, "mouseEase", 0.02, 1, 0.01).name("follow ease");
-  mv.open();
+  // mv.open();
 
   const cyl = gui.addFolder("Cylinder");
   cyl.add(CYLINDER, "segments", 3, 40, 1).name("segments").onChange(buildCylinder);
@@ -87,7 +87,18 @@ export const createGui = ({
       for (const mat of planeMats)
         mat.uniforms.uCardColor.value.fromArray(c.map((v) => v / 255));
     });
-  cyl.open();
+  // cyl.open();
+
+  // Shatter — tuning the fracture applied when a panel opens to its route.
+  // Values are read each time a panel breaks, so changes take effect on the
+  // next focus.
+  const sh = gui.addFolder("Shatter");
+  sh.add(CYLINDER, "shatterPieces", 6, 80, 1).name("pieces");
+  sh.add(CYLINDER, "shatterX", 0, 3, 0.01).name("scatter x");
+  sh.add(CYLINDER, "shatterY", 0, 3, 0.01).name("scatter y");
+  sh.add(CYLINDER, "shatterZ", 0, 3, 0.01).name("scatter z (depth)");
+  sh.add(CYLINDER, "shatterTumble", 0, 4, 0.01).name("tumble");
+  sh.add(CYLINDER, "shatterParallax", 0, 1, 0.01).name("parallax");
 
   const txt = gui.addFolder("Text");
   txt.add(TEXT, "size", 0.05, 0.6, 0.01).name("size").onChange(buildText);
@@ -145,7 +156,7 @@ export const createGui = ({
   txt.add(TEXT, "iridescenceIOR", 1, 2.5, 0.01).name("iridescence ior").onChange((v) => {
     for (const mat of textMats) mat.iridescenceIOR = v;
   });
-  txt.open();
+  // txt.open();
 
   return gui;
 };

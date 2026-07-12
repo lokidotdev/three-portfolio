@@ -2,18 +2,16 @@ import * as THREE from "three";
 
 import vertexShader from "@/shaders/text.vertex.glsl";
 import fragmentShader from "@/shaders/text.fragment.glsl";
-import { CONFIG, TEXTURE_URL } from "@/config/sceneConfig";
+import { CONFIG, INTRO } from "@/config/sceneConfig";
+import { makeTextTexture } from "./textCanvas";
 
-// Builds the flat, full-screen distortion effect: the portfolio artwork drawn
-// on an orthographic quad, warped by the pointer via a custom shader.
+// Builds the flat, full-screen distortion effect: the hero text drawn on an
+// orthographic quad, warped by the pointer via a custom shader. The text is
+// generated at runtime into a canvas texture (see textCanvas.js / HERO_TEXT) so
+// it's editable in code rather than a baked PNG.
 // Returns the material and the texture (so the caller can dispose it).
 export const createTextEffect = () => {
-  const texture = new THREE.TextureLoader().load(TEXTURE_URL, (tex) => {
-    material.uniforms.uTexAspect.value = tex.image.width / tex.image.height;
-  });
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
+  const { texture, aspect, band } = makeTextTexture();
 
   const material = new THREE.ShaderMaterial({
     vertexShader,
@@ -21,10 +19,23 @@ export const createTextEffect = () => {
     uniforms: {
       uTexture: { value: texture },
       uTime: { value: 0 },
+      // Intro reveal: uIntro 0->1 rises the hero text into view behind a fixed
+      // clip line at its baseline, with a left->right stagger. >=1 = disabled.
+      uIntro: { value: 1 },
+      uIntroStagger: { value: INTRO.textStagger },
+      // Distance the glyphs start below the clip line (texture-uv), enough to
+      // push the whole band under the line so it's fully hidden at uIntro = 0.
+      uIntroSlide: { value: (band.top - band.bottom) * INTRO.textSlide },
+      uTextMaskLine: { value: band.bottom },
+      uTextMaskTop: { value: band.top },
+      // Focus exit: the same stagger, sliding the text up and out through the
+      // top clip line as a panel straightens (uExit 0->1). Reverses on return.
+      uExit: { value: 0 },
+      uExitSlide: { value: (band.top - band.bottom) * INTRO.textSlide },
       uHover: { value: 0 },
       uMouse: { value: new THREE.Vector2(0.5, 0.5) },
       uMoveDir: { value: new THREE.Vector2(1, 0) },
-      uTexAspect: { value: 2041 / 926 },
+      uTexAspect: { value: aspect },
       uScreenAspect: { value: 1 },
       // Tunable effect params (see CONFIG / dat.GUI).
       uStrength: { value: CONFIG.strength },

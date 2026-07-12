@@ -9,6 +9,15 @@ import { createFloor } from "./reflector";
 
 const FONT_URL = "/fonts/helvetiker_regular.typeface.json";
 
+// Slug used as the route segment for a panel's title (e.g. "Friends of the
+// Future" -> "friends-of-the-future"). Shared by the ring and the router so a
+// clicked panel and its URL stay in sync.
+export const titleToSlug = (title) =>
+  title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
 // Builds the perspective "cylinder" pass: a ring of textured panels with
 // floating glass titles, standing on a reflective floor. Kept in its own scene
 // and camera so it has real 3D depth while the flat text effect stays a
@@ -76,6 +85,12 @@ export const createCylinder = (renderer) => {
     // matching the panels' shader bend, then recompute normals for the curve.
     const bendGeometry = (geo) => {
       const pos = geo.attributes.position;
+      // Keep the flat positions so the text material can blend back to a
+      // straight title (uBend) when its panel is focused.
+      geo.setAttribute(
+        "aFlat",
+        new THREE.BufferAttribute(new Float32Array(pos.array), 3)
+      );
       for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i);
         const y = pos.getY(i);
@@ -120,6 +135,10 @@ export const createCylinder = (renderer) => {
       );
       wrapper.rotation.y = Math.PI / 2 - a;
       wrapper.add(mesh);
+      // Stable ring index + pristine base position, so a focused panel can be
+      // paired with its title regardless of child order, and restored exactly.
+      wrapper.userData.index = i;
+      wrapper.userData.basePos = wrapper.position.clone();
       textGroup.add(wrapper);
     }
   };
@@ -157,6 +176,14 @@ export const createCylinder = (renderer) => {
       );
       // Orient each box tangent to the ring, facing outward.
       mesh.rotation.y = Math.PI / 2 - a;
+      // Route slug for this panel, so a click can navigate and the URL can map
+      // back to the right panel.
+      const { title } = CYLINDER_TEXTURE_URLS[i % CYLINDER_TEXTURE_URLS.length];
+      mesh.userData.slug = titleToSlug(title);
+      // Stable ring index + pristine base position, matched to the title
+      // wrapper's, so focus pairing and restore don't depend on child order.
+      mesh.userData.index = i;
+      mesh.userData.basePos = mesh.position.clone();
       cylGroup.add(mesh);
     }
     buildText();
@@ -193,6 +220,7 @@ export const createCylinder = (renderer) => {
     camBase,
     cylRoot,
     cylGroup,
+    textGroup,
     floor,
     planeMats,
     textMats,

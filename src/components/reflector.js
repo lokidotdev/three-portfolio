@@ -19,6 +19,8 @@ const reflectorShader = {
     // fades to the white floor by fadeEnd (both in disk radius, 0..1).
     fadeStart: { value: CYLINDER.reflectionFadeStart },
     fadeEnd: { value: CYLINDER.reflectionFadeEnd },
+    // One-time intro fade (0 = invisible, 1 = full). Driven by the load sequence.
+    introOpacity: { value: 1 },
   },
   // vLocal carries the disk's local xy (radius 0..1) so the fragment can
   // fade the reflection out with distance from the cylinder base.
@@ -39,6 +41,7 @@ const reflectorShader = {
     uniform float reflectivity;
     uniform float fadeStart;
     uniform float fadeEnd;
+    uniform float introOpacity;
     uniform sampler2D tDiffuse;
     varying vec4 vUv;
     varying vec2 vLocal;
@@ -60,7 +63,7 @@ const reflectorShader = {
       // fades to transparent (not white) so the scene behind shows through
       // instead of an opaque disk.
       float fade = 1.0 - smoothstep( fadeStart, fadeEnd, length( vLocal ) );
-      gl_FragColor = vec4( reflection, reflectivity * fade );
+      gl_FragColor = vec4( reflection, reflectivity * fade * introOpacity );
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`,
