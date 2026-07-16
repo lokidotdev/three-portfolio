@@ -23,4 +23,21 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  /* The ring is dragged with the pointer; don't let a drag turn into a
+     pull-to-refresh or a rubber-band scroll of the page behind it. */
+  overscroll-behavior: none;
+}
+
+/* The WebGL scene fills the viewport. Height is 100dvh so collapsing mobile
+   browser chrome doesn't crop the scene (100vh stays as a fallback), and width
+   is 100% rather than 100vw so a page scrollbar can't force horizontal
+   overflow. The canvas backing store is sized from these in JS (see
+   Experience/Utils/Sizes). */
+.scene-canvas {
+  display: block;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  touch-action: none;
+  cursor: grab;
 }
