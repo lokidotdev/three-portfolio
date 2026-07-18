@@ -60,6 +60,13 @@ export default class Experience {
     this.world.focus?.onRoute(pathname);
   }
 
+  // scrollY/viewportHeight from the page; the world reads scroll in viewport
+  // heights so it doesn't have to know the pixel size.
+  setScroll(scrollY, viewportHeight) {
+    if (!viewportHeight) return;
+    this.world.setScroll(scrollY / viewportHeight);
+  }
+
   resize() {
     this.camera.resize();
     this.renderer.resize();

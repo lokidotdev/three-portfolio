@@ -12,28 +12,19 @@ import { HERO_TEXT } from "../sceneConfig.js";
 // centerY) read the same on a phone as on a desktop. cfg.width/height only set
 // the resolution budget: the short side keeps min(width, height) pixels and the
 // long side follows the aspect, so at 16:9 this reproduces cfg exactly.
-export const makeHeroTextTexture = (
-  cfg = HERO_TEXT,
-  aspect = cfg.width / cfg.height
-) => {
-  const short = Math.min(cfg.width, cfg.height);
-  const w = Math.min(4096, Math.round(aspect >= 1 ? short * aspect : short));
-  const h = Math.min(4096, Math.round(aspect >= 1 ? short : short / aspect));
-
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-
+// Lay cfg's lines out inside `box` (a rect in canvas pixels) and draw them.
+// Shared by the hero text (one block filling the canvas) and the scroll content
+// (one block per section, stacked down a tall canvas).
+export const drawTextBlock = (ctx, cfg, box) => {
   const lines = cfg.lines;
-  const padX = cfg.paddingX * w;
-  const maxWidth = w - padX * 2;
+  const padX = cfg.paddingX * box.w;
+  const maxWidth = box.w - padX * 2;
   const setFont = (px) =>
     (ctx.font = `${cfg.fontWeight} ${px}px ${cfg.fontFamily}`);
 
   // Start from fontScale of the height, then (when fitWidth) shrink so the
   // widest line fits inside the padding box.
-  let fontSize = cfg.fontScale * h;
+  let fontSize = cfg.fontScale * box.h;
   setFont(fontSize);
   let widest = 0;
   for (const line of lines) {
@@ -51,10 +42,42 @@ export const makeHeroTextTexture = (
   const lineH = fontSize * cfg.lineHeight;
   const blockH = lineH * lines.length;
   const x =
-    cfg.align === "left" ? padX : cfg.align === "right" ? w - padX : w / 2;
+    cfg.align === "left"
+      ? box.x + padX
+      : cfg.align === "right"
+        ? box.x + box.w - padX
+        : box.x + box.w / 2;
   // Centre of the first line, so the whole block is centred on centerY.
-  const firstY = cfg.centerY * h - blockH / 2 + lineH / 2;
+  const firstY = box.y + cfg.centerY * box.h - blockH / 2 + lineH / 2;
   lines.forEach((line, i) => ctx.fillText(line, x, firstY + i * lineH));
+
+  // Bottom edge of the block (symmetric with firstY around centerY), so a
+  // caller can stack more content — e.g. an image row — right below it.
+  const bottom = box.y + cfg.centerY * box.h + blockH / 2;
+
+  return { fontSize, lineH, firstY, bottom };
+};
+
+export const makeHeroTextTexture = (
+  cfg = HERO_TEXT,
+  aspect = cfg.width / cfg.height
+) => {
+  const short = Math.min(cfg.width, cfg.height);
+  const w = Math.min(4096, Math.round(aspect >= 1 ? short * aspect : short));
+  const h = Math.min(4096, Math.round(aspect >= 1 ? short : short / aspect));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+
+  const lines = cfg.lines;
+  const { fontSize, lineH, firstY } = drawTextBlock(ctx, cfg, {
+    x: 0,
+    y: 0,
+    w,
+    h,
+  });
 
   // Tight vertical extent of the drawn glyphs, from the actual glyph metrics.
   // The intro reveal clips at the text's baseline so it can rise into view from

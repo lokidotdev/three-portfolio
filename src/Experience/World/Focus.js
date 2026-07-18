@@ -2,7 +2,7 @@ import * as THREE from "three";
 import Experience from "../Experience.js";
 
 import Shatter from "./Shatter.js";
-import { CYLINDER, TEXT } from "../sceneConfig.js";
+import { CYLINDER, SCROLL, TEXT } from "../sceneConfig.js";
 
 const smoothstep = (x) => x * x * (3 - 2 * x);
 
@@ -29,6 +29,8 @@ export default class Focus {
     //   s   shatter / scatter
     //   dir "in" | "out" — which target the phases ease toward
     this.state = null;
+    // 0 = shards/title fully visible, 1 = fully scrolled-away (see setScroll).
+    this.scrollFade = 0;
 
     this.pointer.on("click", (x, y) => this.selectAt(x, y));
     this.setDebug();
@@ -58,10 +60,18 @@ export default class Focus {
     if (hit) this.begin(hit.object);
   }
 
+  // Driven by scroll position once a panel is fully focused (see World.setScroll).
+  setScroll(fade) {
+    this.scrollFade = fade;
+  }
+
   onRoute(path) {
     const slug = (path || "/").replace(/^\/+/, "");
     if (!slug) {
-      // Home: reverse any active focus back to the ring.
+      // Home: reverse any active focus back to the ring. Nothing is restored by
+      // hand here — the page scrolls back to the top on a route change, and
+      // update() holds the reverse until that eased scroll has unwound, so the
+      // shards and title fade back in rather than snapping to full opacity.
       if (this.state) this.state.dir = "out";
       return;
     }
@@ -142,6 +152,15 @@ export default class Focus {
     // Values are read each time a panel breaks, so changes take effect on the
     // next focus.
     this.debug.whenReady((ui) => {
+      const scroll = ui.addFolder("Scroll");
+      scroll.add(SCROLL, "ease", 0.02, 1, 0.01).name("scroll ease");
+      scroll.add(SCROLL, "fadeDistance", 0.1, 2, 0.05).name("crossfade (vh)");
+      scroll.add(SCROLL, "sectionDistance", 0.3, 2, 0.05).name("section step (vh)");
+      scroll.add(SCROLL, "titleRise", 0, 2, 0.01).name("title rise");
+      // Read every frame from the plane's base, so these two drag live.
+      scroll.add(SCROLL, "contentDrop", -1, 1, 0.01).name("content drop");
+      scroll.add(SCROLL, "contentRise", 0, 1, 0.01).name("content rise");
+
       const folder = ui.addFolder("Shatter");
       folder.add(CYLINDER, "shatterPieces", 6, 80, 1).name("pieces");
       folder.add(CYLINDER, "shatterMinX", 0, 3, 0.01).name("scatter x min");
@@ -171,11 +190,19 @@ export default class Focus {
     const stepTx = dt / TEXT_FLATTEN_DURATION;
     const stepS = dt / SHATTER_DURATION;
 
+    // Reversing away from a scrolled panel: the scroll has to come back up
+    // before the panel can reassemble, or the shards would rush home while
+    // still invisible and pop into view at the end.
+    const unwinding = !goingIn && this.scrollFade > 0.001;
+
     // Forward runs p, then tx, then s (s starts once tx passes 0.5); reverse
     // unwinds them in reverse order: reassemble (s), un-flatten the title (tx),
     // then un-pull the panel (p).
     if (goingIn) {
       focus.p = Math.min(1, focus.p + stepP);
+    } else if (unwinding) {
+      // Hold every phase where it is; the scroll block below plays the fade
+      // backwards as the eased scroll returns to the top.
     } else if (focus.s > 0) {
       focus.s = Math.max(0, focus.s - stepS);
     } else if (focus.tx > 0) {
@@ -245,6 +272,9 @@ export default class Focus {
         if (!focus.shatter) {
           focus.shatter = new Shatter(focus.selected, ring);
           focus.selected.visible = false;
+          // The replacement plane mounts here, at opacity 0 — scrolling fades
+          // it up as the shards it replaces fade out.
+          this.world.scrollContent.attach(focus.selected, ring);
         }
         focus.s = Math.min(1, focus.s + stepS);
       }
@@ -257,12 +287,15 @@ export default class Focus {
         focus.shatter.destroy();
         focus.shatter = null;
         focus.selected.visible = true;
+        this.world.scrollContent.detach();
       }
     }
 
     if (!goingIn && focus.p <= 0 && !focus.shatter) {
       // Fully back to the ring: restore state and release the focus lock.
       focus.selected.material.uniforms.uBend.value = 1;
+      focus.selected.material.uniforms.uOpacity.value = 1;
+      focus.selected.material.transparent = false;
       focus.selected.position.copy(focus.basePos);
       focus.selected.visible = true;
       // Return the faded panels to opaque so the titles refract them again.
@@ -275,6 +308,40 @@ export default class Focus {
         focus.textWrapper.position.copy(focus.textBasePos);
       }
       this.state = null;
+    }
+
+    // Fully settled on a panel (not mid transition): scrolling drifts the
+    // flattened title up as it fades, fades the shards out over the same
+    // distance, then detaches them once they're invisible. Every value is
+    // absolute in the scroll position, so scrolling back up reverses it — and
+    // it runs while reversing too, so leaving the route unwinds it smoothly.
+    if (focus.p >= 1 && focus.tx >= 1) {
+      const sf = smoothstep(this.scrollFade);
+      const opacity = 1 - sf;
+      const gone = this.scrollFade >= 1;
+      // The content plane is tall enough to pass through the floor, so the
+      // mirror goes with the shards.
+      this.world.floor.setScrollFade(sf);
+      // The shards share the panel's material, so this one uniform fades both.
+      focus.selected.material.uniforms.uOpacity.value = opacity;
+      focus.selected.material.transparent = true;
+      // Only ever the shards *or* the solid panel — once it has broken, the
+      // panel stays hidden and its shards carry the fade.
+      focus.selected.visible = !gone && !focus.shatter;
+      if (focus.shatter) {
+        // Taken out of the ring rather than destroyed: rebuilding the Voronoi
+        // fracture on every scroll back would be far more work than re-adding
+        // the group, and the shards' scatter would change under the user.
+        const attached = focus.shatter.group.parent !== null;
+        if (gone && attached) ring.remove(focus.shatter.group);
+        else if (!gone && !attached) ring.add(focus.shatter.group);
+      }
+      if (focus.textWrapper) {
+        const textMesh = focus.textWrapper.children[0];
+        textMesh.material.opacity = opacity;
+        textMesh.visible = !gone;
+        focus.textWrapper.position.y += sf * SCROLL.titleRise;
+      }
     }
   }
 

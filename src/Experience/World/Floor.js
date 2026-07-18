@@ -21,6 +21,10 @@ const reflectorShader = {
     fadeStart: { value: CYLINDER.reflectionFadeStart },
     fadeEnd: { value: CYLINDER.reflectionFadeEnd },
     introOpacity: { value: 1 },
+    // Faded out by the scroll, independently of the intro's own fade — the
+    // content plane is tall enough to pass straight through the floor, so the
+    // mirror leaves as the content arrives (see Floor.setScrollFade).
+    scrollOpacity: { value: 1 },
   },
   // vLocal carries the disk's local xy (radius 0..1) so the fragment can fade
   // the reflection out with distance from the cylinder base.
@@ -42,6 +46,7 @@ const reflectorShader = {
     uniform float fadeStart;
     uniform float fadeEnd;
     uniform float introOpacity;
+    uniform float scrollOpacity;
     uniform sampler2D tDiffuse;
     varying vec4 vUv;
     varying vec2 vLocal;
@@ -63,7 +68,7 @@ const reflectorShader = {
       // to transparent (not white) so the scene behind shows through instead of
       // an opaque disk.
       float fade = 1.0 - smoothstep( fadeStart, fadeEnd, length( vLocal ) );
-      gl_FragColor = vec4( reflection, reflectivity * fade * introOpacity );
+      gl_FragColor = vec4( reflection, reflectivity * fade * introOpacity * scrollOpacity );
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`,
@@ -94,6 +99,14 @@ export default class Floor {
     // The shader fades the reflection to alpha 0 at the edges, so blend it over
     // the scene instead of drawing an opaque disk.
     this.instance.material.transparent = true;
+    // Don't write depth: the mirror is a fading transparent overlay, and the tall
+    // content plane on a panel route passes straight through it (below the base).
+    // If the floor wrote depth it would keep depth-culling the plane's lower
+    // sections even as its alpha fades to 0, so they'd stay hidden until the very
+    // end of the fade and then pop in — the reflective disk reading as "still
+    // there" and removed late. It's the lowest element in the scene, so writing
+    // depth buys nothing (the opaque cylinder above still depth-tests normally).
+    this.instance.material.depthWrite = false;
     this.instance.rotation.x = -Math.PI / 2; // lay flat, facing up
     // Parented to the ring's tilt group, so the base tilts with the cylinder.
     this.experience.world.cylinder.root.add(this.instance);
@@ -110,6 +123,13 @@ export default class Floor {
     this.introProgress = progress;
     this.instance.material.uniforms.introOpacity.value = progress;
     this.instance.position.y = this.restY - INTRO.floorRise * (1 - progress);
+  }
+
+  // 0 = normal, 1 = fully gone. Driven by the scroll on a focused panel route,
+  // in step with the shards fading out (see Focus.update).
+  setScrollFade(fade) {
+    this.instance.material.uniforms.scrollOpacity.value = 1 - fade;
+    this.instance.visible = fade < 1;
   }
 
   setDebug() {

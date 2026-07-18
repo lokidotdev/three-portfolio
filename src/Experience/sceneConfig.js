@@ -81,7 +81,7 @@ export const CYLINDER = {
   focusPull: 0.6, // distance a selected panel eases toward the camera (world units)
   // --- Title flatten (after a panel is fully focused) ---
   textFlattenForward: 0.5, // extra distance the title eases toward the camera
-  textFlattenUp: 0.15, // extra upward drift of the title (world units)
+  textFlattenUp: 1.0, // extra upward drift of the title (world units)
   textFlattenDepth: 0.06, // z-scale the extrusion collapses to (~2D)
   // --- Shatter ---
   shatterPieces: 50, // number of irregular Voronoi fracture shards
@@ -105,6 +105,100 @@ export const CYLINDER = {
   shatterTumble: 1.0, // max random tumble of each shard (radians)
   shatterParallax: 0.35, // shard parallax drift per screen-half of mouse travel
 };
+
+// Panel routes are scrollable: scrolling fades out the focused panel's shards
+// and title, then reveals each section's text on a WebGL plane (same
+// canvas-texture technique as HeroText). Distances are in viewport heights.
+export const SCROLL = {
+  ease: 0.9, // how fast the scene catches up to the page's scroll (0..1 per frame)
+  // The shards/title fade 1 -> 0 and the content plane fades 0 -> 1 across this
+  // same distance — they crossfade rather than waiting on each other.
+  fadeDistance: 0.5, // scroll (vh) over which the swap happens
+  titleRise: 0.5, // world units the title drifts up as it fades out
+  contentDrop: 1.0, // world units the content plane sits below the panel's centre
+  contentRise: 0.25, // world units it eases up through as it fades in
+  sectionDistance: 0.7, // scroll (vh) it takes to slide on to the next section
+};
+
+// Text drawn to the content plane once scrolled past a panel's focused state.
+// Edit freely — same shape as HERO_TEXT (reused by makeHeroTextTexture). One
+// font size covers every line of a section, so the first line reads as the
+// heading by being short and capitalised rather than by being styled larger.
+// `options` overrides any of the defaults below per-section — fontScale and
+// align are the ones worth varying section to section; images is additive.
+const section = (id, lines, options = {}) => ({
+  id,
+  lines,
+  fontFamily: "Helvetica, Arial, sans-serif",
+  fontWeight: 700,
+  color: "#000000",
+  background: "#e6e6e6", // fills the canvas so the plane reads as a solid card
+  width: 1920,
+  height: 1080,
+  fitWidth: false, // keep every section at the same size; lines are short enough
+  fontScale: 0.075, // font size as a fraction of height
+  lineHeight: 2.0,
+  align: "left", // left | center | right
+  paddingX: 0.06,
+  centerY: 0.5,
+  images: [], // optional [{ src, width? }] — see SECTION_IMAGES, drawn in sectionsTexture
+  ...options,
+});
+
+// Layout for a section's `images` row, drawn below its text block once loaded
+// (see sectionImageName + sectionsTexture). Shared by every section; each
+// image entry can override its own `width`.
+export const SECTION_IMAGES = {
+  width: 0.26, // default image width, as a fraction of the page width
+  gap: 0.04, // horizontal gap between images, as a fraction of page width
+  marginTop: 0.08, // gap between the text block and the image row, fraction of page height
+};
+
+// Deterministic resource name for a section image, shared by sources.js
+// (which loads it) and sectionsTexture.js (which looks up the loaded texture).
+export const sectionImageName = (section, index) => `section-${section.id}-${index}`;
+
+export const SECTIONS = [
+  section(
+    "projects",
+    [
+      "PROJECTS",
+      "Friends of the Future — WebGL identity",
+      "Folio — portfolio system",
+      "Montreal — interactive city map",
+      "PromptBoard — realtime collaboration",
+    ],
+    {
+      align: "left",
+      fontScale: 0.06,
+      centerY: 0.32,
+      images: [
+        { src: "/textures/fotf.png" },
+        { src: "/textures/folio.png" },
+        { src: "/textures/montreal.png" },
+      ],
+    }
+  ),
+  section("skills", [
+    "SKILLS",
+    "Three.js · WebGL · GLSL",
+    "React · Next.js · TypeScript",
+    "GSAP · Motion design",
+    "Blender · Figma",
+  ]),
+  section(
+    "experience",
+    [
+      "EXPERIENCE",
+      "2023 — now · Zero1 Studio",
+      "Creative developer, interactive 3D",
+      "2020 — 2023 · Freelance",
+      "Sites, installations, prototypes",
+    ],
+    { align: "right", fontScale: 0.07 }
+  ),
+  section("contact", ["CONTACT", "hello@example.com", "@zero1studio"]),
+];
 
 // One-time load sequence: the camera swoops from a top-down view into the
 // resting view; once `revealAt` through it, the floor eases up + fades in and

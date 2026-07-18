@@ -30,7 +30,8 @@ export default class Renderer {
   }
 
   // Pass 1 is the flat hero-text effect, which clears the frame. Pass 2 draws
-  // the perspective cylinder on top with a fresh depth buffer.
+  // the perspective cylinder on top with a fresh depth buffer. The scroll
+  // content plane is part of that ring, so it needs no pass of its own.
   update() {
     const { heroText } = this.experience.world;
 

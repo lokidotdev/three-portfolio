@@ -6,6 +6,8 @@ import Floor from "./Floor.js";
 import Titles from "./Titles.js";
 import Focus from "./Focus.js";
 import Intro from "./Intro.js";
+import ScrollContent from "./ScrollContent.js";
+import { SCROLL } from "../sceneConfig.js";
 
 export default class World {
   constructor() {
@@ -20,6 +22,12 @@ export default class World {
     // text can be built already hidden. Neither needs resources.
     this.intro = new Intro();
     this.heroText = new HeroText();
+    this.scrollContent = new ScrollContent();
+
+    // The page's scroll position (in viewport heights) and the eased value the
+    // scene actually animates on — see setScroll / update.
+    this.scrollTarget = 0;
+    this.scroll = 0;
 
     // Wait for resources
     this.resources.on("ready", () => {
@@ -41,12 +49,20 @@ export default class World {
     this.floor.frame();
   }
 
+  // The content plane is drawn at its panel's aspect rather than the viewport's,
+  // so unlike the hero text it has nothing to redraw on resize.
   resize() {
     this.heroText.resize();
     this.cylinder?.resize();
   }
 
   update() {
+    // The wheel arrives in coarse jumps, so the scene chases the page's scroll
+    // instead of tracking it exactly: every scroll-driven animation reads the
+    // eased value and so glides between wheel notches.
+    this.scroll += (this.scrollTarget - this.scroll) * SCROLL.ease;
+    this.applyScroll(this.scroll);
+
     this.heroText.update();
     if (!this.cylinder) return;
     this.cylinder.update();
@@ -54,9 +70,23 @@ export default class World {
     this.intro.update();
   }
 
+  // vy is scroll position in viewport heights (0 at the top of a route). Eased
+  // toward in update.
+  setScroll(vy) {
+    this.scrollTarget = vy;
+  }
+
+  // The first fadeDistance drifts the focused panel's title up and fades it out
+  // with the shards; the content plane takes over below that (see ScrollContent).
+  applyScroll(vy) {
+    this.focus?.setScroll(Math.min(1, Math.max(0, vy / SCROLL.fadeDistance)));
+    this.scrollContent.setScroll(vy);
+  }
+
   destroy() {
     this.resources.off("ready");
     this.heroText.destroy();
+    this.scrollContent.destroy();
     this.focus?.destroy();
     this.titles?.destroy();
     this.floor?.destroy();

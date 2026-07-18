@@ -1,4 +1,4 @@
-import { FONT_URL, PANELS } from "./sceneConfig.js";
+import { FONT_URL, PANELS, SECTIONS, sectionImageName } from "./sceneConfig.js";
 
 const sources = [
   {
@@ -11,6 +11,13 @@ const sources = [
     type: "texture",
     path: panel.src,
   })),
+  ...SECTIONS.flatMap((section) =>
+    section.images.map((image, i) => ({
+      name: sectionImageName(section, i),
+      type: "texture",
+      path: image.src,
+    }))
+  ),
 ];
 
 export default sources;

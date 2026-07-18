@@ -19,6 +19,16 @@
   }
 }
 
+/* Panel routes are tall (scrollbar shown) while the home route renders nothing
+   (no scrollbar). Without a reserved gutter, the scrollbar appearing/vanishing
+   on navigation changes the viewport width, which resizes the fixed canvas's
+   backing store (see Experience/Utils/Sizes) and blanks the WebGL buffer for a
+   frame — a white flash at the moment the URL changes. Reserving the gutter
+   keeps the width constant across routes so the canvas never resizes. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -28,16 +38,45 @@ body {
   overscroll-behavior: none;
 }
 
-/* The WebGL scene fills the viewport. Height is 100dvh so collapsing mobile
-   browser chrome doesn't crop the scene (100vh stays as a fallback), and width
-   is 100% rather than 100vw so a page scrollbar can't force horizontal
-   overflow. The canvas backing store is sized from these in JS (see
-   Experience/Utils/Sizes). */
+/* The WebGL scene fills the viewport and stays pinned behind whatever page
+   content follows (see [slug]/page.js), which gives panel routes real
+   scrollable height. Width is 100vw (not 100%) so its measured size stays
+   constant whether or not the page shows a scrollbar — 100% would shrink by the
+   scrollbar width when a tall panel route mounts, resizing the canvas backing
+   store and flashing the buffer blank (see Experience/Utils/Sizes). Being
+   position:fixed, 100vw can't force horizontal overflow. Height is 100dvh so
+   collapsing mobile browser chrome doesn't crop the scene (100vh stays as a
+   fallback). The canvas backing store is sized from these in JS. */
 .scene-canvas {
   display: block;
-  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
   height: 100vh;
   height: 100dvh;
   touch-action: none;
   cursor: grab;
+  z-index: 0;
+}
+
+/* Panel routes stack their scroll spacer (see [slug]/page.js) above the
+   canvas so touch drags scroll the page instead of being eaten by the
+   canvas's touch-action: none (which exists for the home page's ring drag).
+   On a mouse/trackpad that stacking isn't needed — wheel scrolling isn't
+   affected by touch-action — and it was blocking clicks from reaching the
+   canvas and the dat.gui panel (both z-index: 0, so they lose to this
+   element's z-index: 1). Drop out of the way whenever a precise pointer is
+   available so those clicks land again.
+   `any-pointer` (not `pointer`) deliberately: many touchscreen laptops report
+   `pointer: coarse` for the primary pointer even with a mouse attached, since
+   the UA treats touch as primary when both exist. `any-pointer: fine` asks
+   "is a mouse available at all", which is the question that actually matters
+   for a mouse-driven GUI panel. */
+@media (any-pointer: fine) {
+  .panel-route-scroll {
+    /* !important: Tailwind's cascade-layered utilities can otherwise still
+       win depending on layer order; this rule must never lose. */
+    pointer-events: none !important;
+  }
 }
